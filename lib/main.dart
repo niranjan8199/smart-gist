@@ -9,37 +9,6 @@ import 'package:provider/provider.dart';
 
 
 
-class FileSelectionModel extends ChangeNotifier {
-  List<String> inputPageSelectedFiles = [];
-  List<String> referenceMaterialPageSelectedFiles = [];
-
-  //List<String> getInputPageSelectedFiles() {
-    //return inputPageSelectedFiles;
-  //}
-
-  //List<String> getReferenceMaterialPageSelectedFiles() {
-    //return referenceMaterialPageSelectedFiles;
-  //}
-
-  void setInputPageSelectedFiles(List<String> files) {
-    inputPageSelectedFiles = files;
-    print('Input Page Selected Files Updated: $inputPageSelectedFiles');
-    notifyListeners();
-  }
-
-  void setReferenceMaterialPageSelectedFiles(List<String> files) {
-    referenceMaterialPageSelectedFiles = files;
-    print('Reference Material Page Selected Files Updated: $referenceMaterialPageSelectedFiles');
-    notifyListeners();
-  }
-
-  void removeReferenceMaterialPageSelectedFile(int index) {
-    referenceMaterialPageSelectedFiles.removeAt(index);
-    notifyListeners();
-  }
-}
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
@@ -573,9 +542,71 @@ class NewProjectPage extends StatelessWidget {
 }
 
 
-class InputPage extends StatelessWidget {
+class FileSelectionModel extends ChangeNotifier {
+  List<String> inputPageSelectedFiles = [];
+  List<String> referenceMaterialPageSelectedFiles = [];
+  String inputPageTextFieldValue = '';
+
+  void setInputPageTextFieldValue(String value) {
+    inputPageTextFieldValue = value;
+    notifyListeners();
+  }
+
+  void setInputPageSelectedFiles(List<String> files) {
+    inputPageSelectedFiles = files;
+    print('Input Page Selected Files Updated: $inputPageSelectedFiles');
+    notifyListeners();
+  }
+
+  void setReferenceMaterialPageSelectedFiles(List<String> files) {
+    referenceMaterialPageSelectedFiles = files;
+    print('Reference Material Page Selected Files Updated: $referenceMaterialPageSelectedFiles');
+    notifyListeners();
+  }
+
+  void removeReferenceMaterialPageSelectedFile(int index) {
+    referenceMaterialPageSelectedFiles.removeAt(index);
+    notifyListeners();
+  }
+}
+
+
+
+class InputPage extends StatefulWidget {
+  @override
+  _InputPageState createState() => _InputPageState();
+}
+
+class _InputPageState extends State<InputPage> {
+  final TextEditingController _topicController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _topicController.addListener(_updateTextFieldValue);
+  }
+
+  @override
+  void dispose() {
+    _topicController.dispose();
+    super.dispose();
+  }
+
+  void _updateTextFieldValue() {
+    // Update the value in the FileSelectionModel whenever text changes
+    Provider.of<FileSelectionModel>(context, listen: false)
+        .setInputPageTextFieldValue(_topicController.text);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Retrieve the text value from the FileSelectionModel
+    String textFieldValue =
+        Provider.of<FileSelectionModel>(context).inputPageTextFieldValue;
+
+    // Set the text value in the TextField
+    _topicController.text = textFieldValue;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.indigo,
@@ -588,6 +619,7 @@ class InputPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
+              controller: _topicController,
               decoration: InputDecoration(labelText: 'Enter topics'),
             ),
             SizedBox(height: 20),
@@ -655,6 +687,7 @@ class InputPage extends StatelessWidget {
       ),
     );
   }
+}
 
   void _clearSelectedFile(BuildContext context) {
     Provider.of<FileSelectionModel>(context, listen: false).setInputPageSelectedFiles([]);
@@ -679,7 +712,7 @@ class InputPage extends StatelessWidget {
       print('Error picking file: $e');
     }
   }
-}
+
 
 
 class ReferenceMaterialPage extends StatefulWidget {
