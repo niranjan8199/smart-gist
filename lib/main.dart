@@ -565,6 +565,15 @@ class FileSelectionModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearState() {
+    inputPageSelectedFiles = [];
+    referenceMaterialPageSelectedFiles = [];
+    _link = '';
+    inputPageTextFieldValue = '';
+    notifyListeners();
+  }
+  
+
   void setReferenceMaterialPageSelectedFiles(List<String> files) {
     referenceMaterialPageSelectedFiles = files;
     print('Reference Material Page Selected Files Updated: $referenceMaterialPageSelectedFiles');
@@ -925,11 +934,17 @@ class SettingsScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: ElevatedButton(
-            onPressed: () {
-              // Logout the current user
-              _auth.signOut();
-              // Navigate back to the homepage
-              Navigator.pushReplacementNamed(context, '/');
+            onPressed: () async {
+              try {
+                // Logout the current user
+                await _auth.signOut();
+                // Clear the relevant state or data
+                Provider.of<FileSelectionModel>(context, listen: false).clearState();
+                // Navigate back to the homepage
+                Navigator.pushReplacementNamed(context, '/');
+              } catch (e) {
+                print('Error logging out: $e');
+              }
             },
             style: ElevatedButton.styleFrom(
               foregroundColor: Colors.white, backgroundColor: Colors.indigo, // Foreground color
@@ -948,4 +963,3 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 }
-
