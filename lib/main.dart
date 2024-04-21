@@ -5,18 +5,59 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
+
+
+
+class FileSelectionModel extends ChangeNotifier {
+  List<String> inputPageSelectedFiles = [];
+  List<String> referenceMaterialPageSelectedFiles = [];
+
+  //List<String> getInputPageSelectedFiles() {
+    //return inputPageSelectedFiles;
+  //}
+
+  //List<String> getReferenceMaterialPageSelectedFiles() {
+    //return referenceMaterialPageSelectedFiles;
+  //}
+
+  void setInputPageSelectedFiles(List<String> files) {
+    inputPageSelectedFiles = files;
+    print('Input Page Selected Files Updated: $inputPageSelectedFiles');
+    notifyListeners();
+  }
+
+  void setReferenceMaterialPageSelectedFiles(List<String> files) {
+    referenceMaterialPageSelectedFiles = files;
+    print('Reference Material Page Selected Files Updated: $referenceMaterialPageSelectedFiles');
+    notifyListeners();
+  }
+
+  void removeReferenceMaterialPageSelectedFile(int index) {
+    referenceMaterialPageSelectedFiles.removeAt(index);
+    notifyListeners();
+  }
+}
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  runApp(MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => FileSelectionModel(), 
+      child: MyApp(),
+    ),
+  );
 }
+
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SmartGist',
+      debugShowCheckedModeBanner: false,
       initialRoute: '/',
       routes: {
         '/': (context) => HomePage(),
@@ -532,34 +573,7 @@ class NewProjectPage extends StatelessWidget {
 }
 
 
-class InputPage extends StatefulWidget {
-  @override
-  _InputPageState createState() => _InputPageState();
-}
-
-class _InputPageState extends State<InputPage> {
-  String? _selectedFile;
-
-  Future<void> _pickPDF(BuildContext context) async {
-    try {
-      // Open file picker to select a single PDF file
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        allowMultiple: false, // Allow only a single file to be selected
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          // Set the selected file
-          _selectedFile = result.files.first.name;
-        });
-      }
-    } catch (e) {
-      print('Error picking file: $e');
-    }
-  }
-
+class InputPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -600,22 +614,70 @@ class _InputPageState extends State<InputPage> {
               child: Text('+ PDF', style: TextStyle(fontSize: 18)),
             ),
             SizedBox(height: 10),
-            if (_selectedFile != null) ...[
-              Text(
-                'Selected File:',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.indigo,
-                ),
-              ),
-              SizedBox(height: 5),
-              Text(_selectedFile!),
-            ],
+            Consumer<FileSelectionModel>(
+              builder: (context, fileSelectionModel, _) {
+                if (fileSelectionModel.inputPageSelectedFiles.isNotEmpty) {
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Selected File:',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo,
+                            ),
+                          ),
+                          SizedBox(width: 5),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Text(fileSelectionModel.inputPageSelectedFiles.first),
+                                IconButton(
+                                  icon: Icon(Icons.close),
+                                  onPressed: () => _clearSelectedFile(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                } else {
+                  return Container(); // Placeholder if no file is selected
+                }
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void _clearSelectedFile(BuildContext context) {
+    Provider.of<FileSelectionModel>(context, listen: false).setInputPageSelectedFiles([]);
+  }
+
+  Future<void> _pickPDF(BuildContext context) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        // Update the selected files in FileSelectionModel
+        Provider.of<FileSelectionModel>(context, listen: false)
+            .setInputPageSelectedFiles(
+          [result.files.first.name ?? 'Unknown File'],
+        );
+      }
+    } catch (e) {
+      print('Error picking file: $e');
+    }
   }
 }
 
@@ -626,34 +688,6 @@ class ReferenceMaterialPage extends StatefulWidget {
 }
 
 class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
-  List<String> _selectedFiles = [];
-
-  Future<void> _pickPDF(BuildContext context) async {
-    try {
-      // Open file picker to select PDF files
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        allowMultiple: true, // Set allowMultiple to true
-      );
-
-      if (result != null) {
-        setState(() {
-          // Process selected files here
-          _selectedFiles.addAll(result.files.map((file) => file.name ?? 'Unknown File'));
-        });
-      }
-    } catch (e) {
-      print('Error picking files: $e');
-    }
-  }
-
-  void _removeFile(int index) {
-    setState(() {
-      _selectedFiles.removeAt(index);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -700,37 +734,74 @@ class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
               child: Text('+ PDF', style: TextStyle(fontSize: 18)),
             ),
             SizedBox(height: 10),
-            if (_selectedFiles.isNotEmpty) ...[
-              Text(
-                'Selected Files:',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.indigo,
-                ),
-              ),
-              SizedBox(height: 5),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _selectedFiles.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      title: Text(_selectedFiles[index]),
-                      trailing: IconButton(
-                        icon: Icon(Icons.clear),
-                        onPressed: () => _removeFile(index),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+            Consumer<FileSelectionModel>(
+              builder: (context, fileSelectionModel, _) {
+                if (fileSelectionModel.referenceMaterialPageSelectedFiles.isNotEmpty) {
+                  return Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Files Selected:',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.indigo,
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: fileSelectionModel.referenceMaterialPageSelectedFiles.length,
+                          itemBuilder: (context, index) {
+                            return ListTile(
+                              title: Text(fileSelectionModel.referenceMaterialPageSelectedFiles[index]),
+                              trailing: IconButton(
+                                icon: Icon(Icons.clear),
+                                onPressed: () => _removeFile(index, fileSelectionModel),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  return Container(); // Placeholder if no file is selected
+                }
+              },
+            ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _pickPDF(BuildContext context) async {
+    try {
+      FileSelectionModel fileSelectionModel = Provider.of<FileSelectionModel>(context, listen: false);
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: true,
+      );
+
+      if (result != null) {
+        List<String> newFiles = result.files.map((file) => file.name ?? 'Unknown File').toList();
+        List<String> selectedFiles = [...fileSelectionModel.referenceMaterialPageSelectedFiles, ...newFiles];
+        fileSelectionModel.setReferenceMaterialPageSelectedFiles(selectedFiles);
+      }
+    } catch (e) {
+      print('Error picking files: $e');
+    }
+  }
+
+  void _removeFile(int index, FileSelectionModel fileSelectionModel) {
+    fileSelectionModel.removeReferenceMaterialPageSelectedFile(index);
+  }
 }
+
 
 
 
