@@ -546,6 +546,7 @@ class FileSelectionModel extends ChangeNotifier {
   List<String> inputPageSelectedFiles = [];
   List<String> referenceMaterialPageSelectedFiles = [];
   String inputPageTextFieldValue = '';
+  String _link = '';
 
   void setInputPageTextFieldValue(String value) {
     inputPageTextFieldValue = value;
@@ -555,6 +556,12 @@ class FileSelectionModel extends ChangeNotifier {
   void setInputPageSelectedFiles(List<String> files) {
     inputPageSelectedFiles = files;
     print('Input Page Selected Files Updated: $inputPageSelectedFiles');
+    notifyListeners();
+  }
+
+  String get link => _link;
+  void setLink(String value) {
+    _link = value;
     notifyListeners();
   }
 
@@ -721,6 +728,27 @@ class ReferenceMaterialPage extends StatefulWidget {
 }
 
 class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
+  final TextEditingController _linkController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final fileSelectionModel = Provider.of<FileSelectionModel>(context, listen: false);
+    _linkController.text = fileSelectionModel.link;
+    _linkController.addListener(_onLinkChanged);
+  }
+
+  @override
+  void dispose() {
+    _linkController.dispose();
+    super.dispose();
+  }
+
+  void _onLinkChanged() {
+    final fileSelectionModel = Provider.of<FileSelectionModel>(context, listen: false);
+    fileSelectionModel.setLink(_linkController.text);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -733,45 +761,49 @@ class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Link',
-                prefixIcon: Icon(Icons.link),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Consumer<FileSelectionModel>(
+                builder: (context, fileSelectionModel, _) {
+                  return TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Link',
+                      prefixIcon: Icon(Icons.link),
+                    ),
+                    controller: _linkController,
+                  );
+                },
               ),
-            ),
-            SizedBox(height: 20),
-            Text(
-              'OR',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.indigo,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => _pickPDF(context),
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.indigo,
-                padding: EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+              SizedBox(height: 20),
+              Text(
+                'OR',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.indigo,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              child: Text('+ PDF', style: TextStyle(fontSize: 18)),
-            ),
-            SizedBox(height: 10),
-            Consumer<FileSelectionModel>(
-              builder: (context, fileSelectionModel, _) {
-                if (fileSelectionModel.referenceMaterialPageSelectedFiles.isNotEmpty) {
-                  return Expanded(
-                    child: Column(
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => __pickPDF(context),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.indigo,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text('+ PDF', style: TextStyle(fontSize: 18)),
+              ),
+              SizedBox(height: 10),
+              Consumer<FileSelectionModel>(
+                builder: (context, fileSelectionModel, _) {
+                  if (fileSelectionModel.referenceMaterialPageSelectedFiles.isNotEmpty) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -797,20 +829,21 @@ class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
                           },
                         ),
                       ],
-                    ),
-                  );
-                } else {
-                  return Container(); // Placeholder if no file is selected
-                }
-              },
-            ),
-          ],
+                    );
+                  } else {
+                    return Container(); // Placeholder if no file is selected
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Future<void> _pickPDF(BuildContext context) async {
+  Future<void> __pickPDF(BuildContext context) async {
     try {
       FileSelectionModel fileSelectionModel = Provider.of<FileSelectionModel>(context, listen: false);
 
@@ -833,7 +866,7 @@ class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
   void _removeFile(int index, FileSelectionModel fileSelectionModel) {
     fileSelectionModel.removeReferenceMaterialPageSelectedFile(index);
   }
-}
+
 
 
 
