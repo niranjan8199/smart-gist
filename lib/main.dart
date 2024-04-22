@@ -405,8 +405,53 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 }
 
+class FileSelectionModel extends ChangeNotifier {
+  List<String> inputPageSelectedFiles = [];
+  List<String> referenceMaterialPageSelectedFiles = [];
+  String inputPageTextFieldValue = '';
+  String _link = '';
+
+  void setInputPageTextFieldValue(String value) {
+    inputPageTextFieldValue = value;
+    notifyListeners();
+  }
+
+  void setInputPageSelectedFiles(List<String> files) {
+    inputPageSelectedFiles = files;
+    print('Input Page Selected Files Updated: $inputPageSelectedFiles');
+    notifyListeners();
+  }
+
+  String get link => _link;
+  void setLink(String value) {
+    _link = value;
+    notifyListeners();
+  }
+
+  void clearState() {
+    inputPageSelectedFiles = [];
+    referenceMaterialPageSelectedFiles = [];
+    _link = '';
+    inputPageTextFieldValue = '';
+    notifyListeners();
+  }
+  
+
+  void setReferenceMaterialPageSelectedFiles(List<String> files) {
+    referenceMaterialPageSelectedFiles = files;
+    print('Reference Material Page Selected Files Updated: $referenceMaterialPageSelectedFiles');
+    notifyListeners();
+  }
+
+  void removeReferenceMaterialPageSelectedFile(int index) {
+    referenceMaterialPageSelectedFiles.removeAt(index);
+    notifyListeners();
+  }
+}
+
 
 class DashboardPage extends StatelessWidget {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -416,13 +461,23 @@ class DashboardPage extends StatelessWidget {
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            icon: Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
+            icon: Icon(Icons.logout, color: Colors.white),
+            onPressed: () async {
               // Navigate to settings screen
-              Navigator.push(
+              /*Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => SettingsScreen()),
-              );
+              );*/
+              try {
+                // Logout the current user
+                await _auth.signOut();
+                // Clear the relevant state or data
+                Provider.of<FileSelectionModel>(context, listen: false).clearState();
+                // Navigate back to the homepage
+                Navigator.pushReplacementNamed(context, '/');
+              } catch (e) {
+                print('Error logging out: $e');
+              }
             },
           ),
         ],
@@ -540,52 +595,6 @@ class NewProjectPage extends StatelessWidget {
     );
   }
 }
-
-
-class FileSelectionModel extends ChangeNotifier {
-  List<String> inputPageSelectedFiles = [];
-  List<String> referenceMaterialPageSelectedFiles = [];
-  String inputPageTextFieldValue = '';
-  String _link = '';
-
-  void setInputPageTextFieldValue(String value) {
-    inputPageTextFieldValue = value;
-    notifyListeners();
-  }
-
-  void setInputPageSelectedFiles(List<String> files) {
-    inputPageSelectedFiles = files;
-    print('Input Page Selected Files Updated: $inputPageSelectedFiles');
-    notifyListeners();
-  }
-
-  String get link => _link;
-  void setLink(String value) {
-    _link = value;
-    notifyListeners();
-  }
-
-  void clearState() {
-    inputPageSelectedFiles = [];
-    referenceMaterialPageSelectedFiles = [];
-    _link = '';
-    inputPageTextFieldValue = '';
-    notifyListeners();
-  }
-  
-
-  void setReferenceMaterialPageSelectedFiles(List<String> files) {
-    referenceMaterialPageSelectedFiles = files;
-    print('Reference Material Page Selected Files Updated: $referenceMaterialPageSelectedFiles');
-    notifyListeners();
-  }
-
-  void removeReferenceMaterialPageSelectedFile(int index) {
-    referenceMaterialPageSelectedFiles.removeAt(index);
-    notifyListeners();
-  }
-}
-
 
 
 class InputPage extends StatefulWidget {
@@ -877,10 +886,6 @@ class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
   }
 
 
-
-
-
-
 class DownloadPDFPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -917,7 +922,7 @@ class DownloadPDFPage extends StatelessWidget {
   }
 }
 
-class SettingsScreen extends StatelessWidget {
+/*class SettingsScreen extends StatelessWidget {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
@@ -962,4 +967,4 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
-}
+}*/
