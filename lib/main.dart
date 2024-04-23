@@ -410,6 +410,24 @@ class FileSelectionModel extends ChangeNotifier {
   List<String> referenceMaterialPageSelectedFiles = [];
   String inputPageTextFieldValue = '';
   String _link = '';
+  
+  // Getter for input page text
+  String get _inputPageTextFieldValue => inputPageTextFieldValue;
+
+  // Getter for link
+  String get link => _link;
+  // Getter for input page selected files
+  List<String> get _inputPageSelectedFiles => inputPageSelectedFiles;
+
+  // Getter for reference material page selected files
+  List<String> get _referenceMaterialPageSelectedFiles => referenceMaterialPageSelectedFiles;
+
+  // Method to check if input page is empty
+  bool get isInputPageEmpty => inputPageTextFieldValue.isEmpty && inputPageSelectedFiles.isEmpty;
+
+  // Method to check if reference material page is empty
+  bool get isReferencePageEmpty => referenceMaterialPageSelectedFiles.isEmpty && _link.isEmpty;
+
 
   void setInputPageTextFieldValue(String value) {
     inputPageTextFieldValue = value;
@@ -422,7 +440,6 @@ class FileSelectionModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  String get link => _link;
   void setLink(String value) {
     _link = value;
     notifyListeners();
@@ -522,9 +539,18 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
-class NewProjectPage extends StatelessWidget {
+class NewProjectPage extends StatefulWidget {
+  @override
+  _NewProjectPageState createState() => _NewProjectPageState();
+}
+
+class _NewProjectPageState extends State<NewProjectPage> {
+  bool _showError = false;
+
   @override
   Widget build(BuildContext context) {
+    final fileSelectionModel = Provider.of<FileSelectionModel>(context);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.indigo,
@@ -577,8 +603,20 @@ class NewProjectPage extends StatelessWidget {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // Handle generate PDF button press
-                Navigator.pushNamed(context, '/download_pdf');
+                // Check if input page is empty
+                if (fileSelectionModel.isInputPageEmpty ||
+                    fileSelectionModel.isReferencePageEmpty) {
+                  setState(() {
+                    _showError = true;
+                  });
+                } else {
+                   // Clear error message
+                  setState(() {
+                    _showError = false;
+                  });
+                  // Handle generate PDF button press
+                  Navigator.pushNamed(context, '/download_pdf');
+                }
               },
               style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white, backgroundColor: Colors.indigo,
@@ -589,12 +627,25 @@ class NewProjectPage extends StatelessWidget {
               ),
               child: Text('Generate PDF', style: TextStyle(fontSize: 18)),
             ),
+            if (_showError)
+              Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: Text(
+                  'Error: Input page/Reference page is empty',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 }
+
 
 
 class InputPage extends StatefulWidget {
@@ -646,6 +697,9 @@ class _InputPageState extends State<InputPage> {
             TextField(
               controller: _topicController,
               decoration: InputDecoration(labelText: 'Enter topics'),
+              /*onChanged: (value) {
+                Provider.of<FileSelectionModel>(context, listen: false).setInputPageTextFieldValue(value);
+              },*/
             ),
             SizedBox(height: 20),
             Text(
@@ -893,10 +947,12 @@ class DownloadPDFPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.indigo,
         title: Text('Download PDF', style: TextStyle(color: Colors.white)),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: Icon(Icons.home, color: Colors.white),
             onPressed: () {
+              Provider.of<FileSelectionModel>(context, listen: false).clearState();
               Navigator.pushNamed(context, '/dashboard');
             },
           ),
