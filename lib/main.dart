@@ -6,7 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 
 void main() async {
@@ -547,6 +548,38 @@ class NewProjectPage extends StatefulWidget {
 class _NewProjectPageState extends State<NewProjectPage> {
   bool _showError = false;
 
+  Future<void> generatePDF() async {
+    try {
+  final response = await http.post(
+    Uri.parse('http://192.168.0.103:5000/generate_pdf'),
+    headers: <String, String>{
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode(<String, dynamic>{
+      'data': 'example data',
+    }),
+  ).catchError((error) {
+    print('Error making HTTP request: $error');
+  });
+
+
+      // Handle the response
+      if (response.statusCode == 200) {
+        print('Connected to Flask server');
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final String pdfUrl = responseData['pdf_url'];
+        print('PDF URL: $pdfUrl');
+      } else {
+        // Handle error responses
+        print('Failed to connect to Flask server');
+        print('Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Handle exceptions
+      print('Exception: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final fileSelectionModel = Provider.of<FileSelectionModel>(context);
@@ -615,6 +648,7 @@ class _NewProjectPageState extends State<NewProjectPage> {
                     _showError = false;
                   });
                   // Handle generate PDF button press
+                  generatePDF();
                   Navigator.pushNamed(context, '/download_pdf');
                 }
               },
