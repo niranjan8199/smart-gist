@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 
 void main() async {
@@ -551,7 +553,7 @@ class _NewProjectPageState extends State<NewProjectPage> {
   Future<void> generatePDF() async {
     try {
   final response = await http.post(
-    Uri.parse('http://192.168.0.103:5000/generate_pdf'),
+    Uri.parse('http://192.168.0.103:5000/generate_pdf'), 
     headers: <String, String>{
       'Content-Type': 'application/json',
     },
@@ -972,9 +974,61 @@ class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
   void _removeFile(int index, FileSelectionModel fileSelectionModel) {
     fileSelectionModel.removeReferenceMaterialPageSelectedFile(index);
   }
+  
 
+class DownloadPDFPage extends StatefulWidget {
+  @override
+  _DownloadPDFPageState createState() => _DownloadPDFPageState();
+}
 
-class DownloadPDFPage extends StatelessWidget {
+class _DownloadPDFPageState extends State<DownloadPDFPage> {
+  @override
+  void initState() {
+    super.initState();
+    requestStoragePermission();
+  }
+
+  Future<void> requestStoragePermission() async {
+    if (await Permission.storage.request().isGranted) {
+      // Permission is granted
+    } else {
+      // Handle the case when the permission is not granted
+    }
+  }
+
+  Future<void> downloadPDF() async {
+    final url = 'http://192.168.0.103:5000/download_pdf'; // Replace with your server's IP address
+
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        // Assuming the server returns the PDF file
+        final bytes = response.bodyBytes;
+
+        // Get the external storage directory
+        final directory = await getExternalStorageDirectory();
+
+        if (directory != null) {
+          final documentsPath = directory.path;
+          final filePath = '$documentsPath/downloaded.pdf';
+
+          final file = File(filePath);
+          await file.writeAsBytes(bytes);
+
+          print('PDF downloaded to ${file.path}');
+          // Here you can implement logic to open the PDF file, e.g., using a PDF viewer package
+        } else {
+          print('Failed to get the documents directory');
+        }
+      } else {
+        print('Failed to download PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error downloading PDF: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -994,8 +1048,8 @@ class DownloadPDFPage extends StatelessWidget {
       ),
       body: Center(
         child: ElevatedButton(
-          onPressed: () {
-            // Handle Download PDF button press
+          onPressed: () async {
+            await downloadPDF();
           },
           style: ElevatedButton.styleFrom(
             foregroundColor: Colors.white,
@@ -1011,50 +1065,3 @@ class DownloadPDFPage extends StatelessWidget {
     );
   }
 }
-
-/*class SettingsScreen extends StatelessWidget {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.indigo,
-        title: Text(
-          'Settings',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: ElevatedButton(
-            onPressed: () async {
-              try {
-                // Logout the current user
-                await _auth.signOut();
-                // Clear the relevant state or data
-                Provider.of<FileSelectionModel>(context, listen: false).clearState();
-                // Navigate back to the homepage
-                Navigator.pushReplacementNamed(context, '/');
-              } catch (e) {
-                print('Error logging out: $e');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white, backgroundColor: Colors.indigo, // Foreground color
-              padding: EdgeInsets.symmetric(vertical: 20, horizontal: 40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: Text(
-              'Logout',
-              style: TextStyle(fontSize: 18),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}*/
