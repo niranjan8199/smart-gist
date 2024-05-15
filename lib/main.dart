@@ -10,6 +10,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+
 
 
 void main() async {
@@ -469,31 +473,108 @@ class FileSelectionModel extends ChangeNotifier {
   }
 }
 
+class PdfHistory {
+  final String pdfUrl;
+  final String timestamp;
+  final String userId; 
 
-class DashboardPage extends StatelessWidget {
+  PdfHistory({required this.pdfUrl, required this.timestamp, required this.userId});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'pdfUrl': pdfUrl,
+      'timestamp': timestamp,
+      'userId': userId, 
+    };
+  }
+
+  static PdfHistory fromMap(Map<String, dynamic> map) {
+    return PdfHistory(
+      pdfUrl: map['pdfUrl'],
+      timestamp: map['timestamp'],
+      userId: map['userId'], 
+    );
+  }
+}
+
+class PdfHistoryStorage {
+  final SharedPreferences prefs;
+
+  PdfHistoryStorage(this.prefs);
+
+  Future<void> addPdfToHistory(PdfHistory pdfHistory) async {
+    List<String> historyList = prefs.getStringList('pdfHistory_${pdfHistory.userId}') ?? [];
+    historyList.add(jsonEncode(pdfHistory.toMap()));
+    await prefs.setStringList('pdfHistory_${pdfHistory.userId}', historyList);
+  }
+
+  List<PdfHistory> getPdfHistory(String userId) {
+    List<String> historyList = prefs.getStringList('pdfHistory_${userId}') ?? [];
+    return historyList.map((item) => PdfHistory.fromMap(jsonDecode(item))).toList();
+  }
+
+  Future<void> clearPdfHistory(String userId) async {
+    await prefs.remove('pdfHistory_${userId}');
+  }
+}
+
+
+
+class DashboardPage extends StatefulWidget {
+  @override
+  _DashboardPageState createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  List<PdfHistory> _pdfHistoryList = [];
+  late PdfHistoryStorage _pdfHistoryStorage;
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    _currentUser = _auth.currentUser;
+    if (_currentUser != null) {
+      final prefs = await SharedPreferences.getInstance();
+      _pdfHistoryStorage = PdfHistoryStorage(prefs);
+      _loadPdfHistory();
+    }
+  }
+
+  Future<void> _loadPdfHistory() async {
+    if (_currentUser != null) {
+      setState(() {
+        _pdfHistoryList = _pdfHistoryStorage.getPdfHistory(_currentUser!.uid);
+      });
+    }
+  }
+
+  Future<void> _clearPdfHistory() async {
+    if (_currentUser != null) {
+      await _pdfHistoryStorage.clearPdfHistory(_currentUser!.uid);
+      _loadPdfHistory();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.indigo,
-        title: Text('Dashboard',style: TextStyle(color: Colors.white)),
+        title: Text('Dashboard', style: TextStyle(color: Colors.white)),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
-              // Navigate to settings screen
-              /*Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SettingsScreen()),
-              );*/
               try {
-                // Logout the current user
                 await _auth.signOut();
-                // Clear the relevant state or data
                 Provider.of<FileSelectionModel>(context, listen: false).clearState();
-                // Navigate back to the homepage
                 Navigator.pushReplacementNamed(context, '/');
               } catch (e) {
                 print('Error logging out: $e');
@@ -535,12 +616,33 @@ class DashboardPage extends StatelessWidget {
                 ),
               ),
             ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _pdfHistoryList.length,
+                itemBuilder: (context, index) {
+                  final pdfHistory = _pdfHistoryList[index];
+                  return ListTile(
+                    title: Text('PDF generated on ${DateFormat.yMMMd().format(DateTime.parse(pdfHistory.timestamp))}'),
+                    subtitle: Text(pdfHistory.pdfUrl),
+                    onTap: () async {
+                      final url = pdfHistory.pdfUrl;
+                      if (await canLaunch(url)) {
+                        await launch(url);
+                      } else {
+                        throw 'Could not launch $url';
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
 
 class NewProjectPage extends StatefulWidget {
   @override
@@ -996,38 +1098,49 @@ class _DownloadPDFPageState extends State<DownloadPDFPage> {
     }
   }
 
-  Future<void> downloadPDF() async {
-    final url = 'http://192.168.0.103:5000/download_pdf'; // Replace with your server's IP address
+  Future<void> downloadPDF(BuildContext context) async {
+  final url = 'http://192.168.0.103:5000/download_pdf'; // Replace with your server's IP address
+  final user = FirebaseAuth.instance.currentUser;
 
-    try {
-      final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        // Assuming the server returns the PDF file
-        final bytes = response.bodyBytes;
-
-        // Get the external storage directory
-        final directory = await getExternalStorageDirectory();
-
-        if (directory != null) {
-          final documentsPath = directory.path;
-          final filePath = '$documentsPath/downloaded.pdf';
-
-          final file = File(filePath);
-          await file.writeAsBytes(bytes);
-
-          print('PDF downloaded to ${file.path}');
-          // Here you can implement logic to open the PDF file, e.g., using a PDF viewer package
-        } else {
-          print('Failed to get the documents directory');
-        }
-      } else {
-        print('Failed to download PDF: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error downloading PDF: $e');
-    }
+  if (user == null) {
+    print('User is not logged in');
+    return;
   }
+
+  final userId = user.uid;
+
+  try {
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final bytes = response.bodyBytes;
+      final directory = await getExternalStorageDirectory();
+
+      if (directory != null) {
+        final documentsPath = directory.path;
+        final filePath = '$documentsPath/downloaded.pdf';
+        final file = File(filePath);
+        await file.writeAsBytes(bytes);
+
+        final timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+
+        final prefs = await SharedPreferences.getInstance();
+        final pdfHistoryStorage = PdfHistoryStorage(prefs);
+        final pdfHistory = PdfHistory(pdfUrl: file.path, timestamp: timestamp, userId: userId);
+
+        await pdfHistoryStorage.addPdfToHistory(pdfHistory);
+
+        Navigator.pushNamed(context, '/dashboard');
+      } else {
+        print('Failed to get the documents directory');
+      }
+    } else {
+      print('Failed to download PDF: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error downloading PDF: $e');
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -1049,7 +1162,7 @@ class _DownloadPDFPageState extends State<DownloadPDFPage> {
       body: Center(
         child: ElevatedButton(
           onPressed: () async {
-            await downloadPDF();
+            await downloadPDF(context);
           },
           style: ElevatedButton.styleFrom(
             foregroundColor: Colors.white,
