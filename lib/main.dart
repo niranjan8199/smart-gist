@@ -21,7 +21,7 @@ void main() async {
   await Firebase.initializeApp();
   runApp(
     ChangeNotifierProvider(
-      create: (context) => FileSelectionModel(), 
+      create: (context) => FileSelectionModel(),
       child: MyApp(),
     ),
   );
@@ -417,7 +417,7 @@ class FileSelectionModel extends ChangeNotifier {
   List<String> referenceMaterialPageSelectedFiles = [];
   String inputPageTextFieldValue = '';
   String _link = '';
-  
+ 
   // Getter for input page text
   String get _inputPageTextFieldValue => inputPageTextFieldValue;
 
@@ -459,7 +459,7 @@ class FileSelectionModel extends ChangeNotifier {
     inputPageTextFieldValue = '';
     notifyListeners();
   }
-  
+ 
 
   void setReferenceMaterialPageSelectedFiles(List<String> files) {
     referenceMaterialPageSelectedFiles = files;
@@ -476,7 +476,7 @@ class FileSelectionModel extends ChangeNotifier {
 class PdfHistory {
   final String pdfUrl;
   final String timestamp;
-  final String userId; 
+  final String userId;
 
   PdfHistory({required this.pdfUrl, required this.timestamp, required this.userId});
 
@@ -484,7 +484,7 @@ class PdfHistory {
     return {
       'pdfUrl': pdfUrl,
       'timestamp': timestamp,
-      'userId': userId, 
+      'userId': userId,
     };
   }
 
@@ -492,7 +492,7 @@ class PdfHistory {
     return PdfHistory(
       pdfUrl: map['pdfUrl'],
       timestamp: map['timestamp'],
-      userId: map['userId'], 
+      userId: map['userId'],
     );
   }
 }
@@ -517,7 +517,6 @@ class PdfHistoryStorage {
     await prefs.remove('pdfHistory_${userId}');
   }
 }
-
 
 
 class DashboardPage extends StatefulWidget {
@@ -644,6 +643,7 @@ class _DashboardPageState extends State<DashboardPage> {
 }
 
 
+
 class NewProjectPage extends StatefulWidget {
   @override
   _NewProjectPageState createState() => _NewProjectPageState();
@@ -651,17 +651,89 @@ class NewProjectPage extends StatefulWidget {
 
 class _NewProjectPageState extends State<NewProjectPage> {
   bool _showError = false;
+  Future<void> removeFile2(String fileName) async {
+    print("hello");
+  try {
+    var response = await http.delete(
+      Uri.parse('http://10.0.11.154:5000/removeinputfile'),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(<String, String>{
+        'fileName': fileName,
+      }),
+    );
+    if (response.statusCode == 200) {
+      print('File removed successfully');
+    } else {
+      print('Failed to remove file: ${response.reasonPhrase}');
+    }
+  } catch (e) {
+    print('Error removing file: $e');
+  }
+}
+  Future<void> removeFile1(String fileName) async {
+    print("hello");
+  try {
+    var response = await http.delete(
+      Uri.parse('http://10.0.11.154:5000/removefile'),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(<String, String>{
+        'fileName': fileName,
+      }),
+    );
+    if (response.statusCode == 200) {
+      print('File removed successfully');
+    } else {
+      print('Failed to remove file: ${response.reasonPhrase}');
+    }
+  } catch (e) {
+    print('Error removing file: $e');
+  }
+}
+  Future<void> uploadFile(File pdfFile) async {
+  var request = http.MultipartRequest('POST', Uri.parse('http://10.0.11.154:5000/upload'));
+  request.files.add(await http.MultipartFile.fromPath('pdf', pdfFile.path));
 
+  try {
+    var response = await request.send();
+    if (response.statusCode == 200) {
+      print('File uploaded successfully');
+    } else {
+      print('Failed to upload file: ${response.reasonPhrase}');
+    }
+  } catch (e) {
+    print('Error uploading file: $e');
+  }
+ }
+ Future<void> uploadrefFile(File pdfFile) async {
+  var request = http.MultipartRequest('POST', Uri.parse('http://10.0.11.154:5000/uploadref'));
+  request.files.add(await http.MultipartFile.fromPath('pdf', pdfFile.path));
+
+  try {
+    var response = await request.send();
+    if (response.statusCode == 200) {
+      print('File uploaded successfully');
+    } else {
+      print('Failed to upload file: ${response.reasonPhrase}');
+    }
+  } catch (e) {
+    print('Error uploading file: $e');
+  }
+ }
   Future<void> generatePDF() async {
     try {
   final response = await http.post(
-    Uri.parse('http://192.168.0.103:5000/generate_pdf'), 
+    Uri.parse('http://10.0.11.154:5000/generate_pdf'),
     headers: <String, String>{
       'Content-Type': 'application/json',
     },
     body: jsonEncode(<String, dynamic>{
       'data': 'example data',
     }),
+   
   ).catchError((error) {
     print('Error making HTTP request: $error');
   });
@@ -681,6 +753,7 @@ class _NewProjectPageState extends State<NewProjectPage> {
     } catch (e) {
       // Handle exceptions
       print('Exception: $e');
+     
     }
   }
 
@@ -807,9 +880,39 @@ class _InputPageState extends State<InputPage> {
   }
 
   void _updateTextFieldValue() {
+    String fieldValue = _topicController.text;
+
     // Update the value in the FileSelectionModel whenever text changes
     Provider.of<FileSelectionModel>(context, listen: false)
-        .setInputPageTextFieldValue(_topicController.text);
+        .setInputPageTextFieldValue(fieldValue);
+   
+    // Call connectToBackendServer with the updated text value
+    connectToBackendServer(fieldValue);
+  }
+
+  void connectToBackendServer(String textData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.0.11.154:5000/uploadtext'), // Replace with your endpoint
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(<String, dynamic>{
+          'textData': textData,
+        }),
+     
+    );
+      print(textData);
+      // Handle the response
+      if (response.statusCode == 200) {
+        print('Connected to backend server');
+        // Process the response here if needed
+      } else {
+        print('Failed to connect to backend server: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error connecting to backend server: $e');
+    }
   }
 
   @override
@@ -817,9 +920,6 @@ class _InputPageState extends State<InputPage> {
     // Retrieve the text value from the FileSelectionModel
     String textFieldValue =
         Provider.of<FileSelectionModel>(context).inputPageTextFieldValue;
-
-    // Set the text value in the TextField
-    _topicController.text = textFieldValue;
 
     return Scaffold(
       appBar: AppBar(
@@ -908,6 +1008,8 @@ class _InputPageState extends State<InputPage> {
 
   void _clearSelectedFile(BuildContext context) {
     Provider.of<FileSelectionModel>(context, listen: false).setInputPageSelectedFiles([]);
+    _NewProjectPageState obj=_NewProjectPageState();
+    obj.removeFile2('example.pdf');
   }
 
   Future<void> _pickPDF(BuildContext context) async {
@@ -924,6 +1026,17 @@ class _InputPageState extends State<InputPage> {
             .setInputPageSelectedFiles(
           [result.files.first.name ?? 'Unknown File'],
         );
+        PlatformFile file = result.files.first;
+        File? _selectedFile =File(file.path!);
+       _selectedFile = File(result.files.single.path ?? '');
+       _NewProjectPageState other = _NewProjectPageState();
+       
+    if (_selectedFile != null) {
+  await other.uploadFile(_selectedFile);
+} else {
+  // Handle the case when _selectedFile is null
+  print('Selected file is null');
+}
       }
     } catch (e) {
       print('Error picking file: $e');
@@ -1055,28 +1168,47 @@ class _ReferenceMaterialPageState extends State<ReferenceMaterialPage> {
 
   Future<void> __pickPDF(BuildContext context) async {
     try {
-      FileSelectionModel fileSelectionModel = Provider.of<FileSelectionModel>(context, listen: false);
-
+      FileSelectionModel fileSelectionModel =Provider.of<FileSelectionModel>(context,listen:false);
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
-        allowMultiple: true,
+        allowMultiple: false,
       );
 
-      if (result != null) {
-        List<String> newFiles = result.files.map((file) => file.name ?? 'Unknown File').toList();
-        List<String> selectedFiles = [...fileSelectionModel.referenceMaterialPageSelectedFiles, ...newFiles];
-        fileSelectionModel.setReferenceMaterialPageSelectedFiles(selectedFiles);
+      if (result != null && result.files.isNotEmpty) {
+
+        // Update the selected files in FileSelectionModel
+        Provider.of<FileSelectionModel>(context, listen: false)
+            .setInputPageSelectedFiles(
+          [result.files.first.name ?? 'Unknown File'],
+        );
+        PlatformFile file = result.files.first;
+        File? _selectedFile =File(file.path!);
+       _selectedFile = File(result.files.single.path ?? '');
+       _NewProjectPageState other = _NewProjectPageState();
+      List<String> newFiles=result.files.map((file)=>file.name ?? 'Unknown File').toList();
+      List<String> selectedFiles=[...fileSelectionModel.referenceMaterialPageSelectedFiles, ...newFiles];
+       fileSelectionModel.setReferenceMaterialPageSelectedFiles(selectedFiles);
+    if (_selectedFile != null) {
+  await other.uploadrefFile(_selectedFile);
+} else {
+  // Handle the case when _selectedFile is null
+  print('Selected file is null');
+}
       }
     } catch (e) {
-      print('Error picking files: $e');
+      print('Error picking file: $e');
     }
-  }
+    }
 
   void _removeFile(int index, FileSelectionModel fileSelectionModel) {
+    String fileName = fileSelectionModel.referenceMaterialPageSelectedFiles[index];
     fileSelectionModel.removeReferenceMaterialPageSelectedFile(index);
+    _NewProjectPageState obj = _NewProjectPageState();
+    obj.removeFile1(fileName);
   }
-  
+
+ 
 
 class DownloadPDFPage extends StatefulWidget {
   @override
@@ -1094,12 +1226,12 @@ class _DownloadPDFPageState extends State<DownloadPDFPage> {
     if (await Permission.storage.request().isGranted) {
       // Permission is granted
     } else {
-      // Handle the case when the permission is not granted
+      //permission is not granted
     }
   }
 
   Future<void> downloadPDF(BuildContext context) async {
-  final url = 'http://192.168.0.103:5000/download_pdf'; // Replace with your server's IP address
+  final url = 'http://10.0.11.154:5000/download_pdf'; // Replace with your server's IP address
   final user = FirebaseAuth.instance.currentUser;
 
   if (user == null) {
